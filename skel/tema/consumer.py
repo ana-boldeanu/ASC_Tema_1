@@ -31,7 +31,7 @@ class Consumer(Thread):
         :type kwargs:
         :param kwargs: other arguments that are passed to the Thread's __init__()
         """
-        Thread.__init__(self, kwargs)
+        Thread.__init__(self, **kwargs)
 
         self.carts = carts
         self.marketplace = marketplace
@@ -45,11 +45,11 @@ class Consumer(Thread):
 
         # Execute add and remove operations
         for operation in self.carts:
-            if operation['type'] == 'add':
+            if operation[0] == 'add':
                 found_it = self.marketplace.add_to_cart(self.id, operation['product'])
                 if ~found_it:
                     time.sleep(self.retry_wait_time)
 
-            if operation['type'] == 'remove':
+            if operation[0] == 'remove':
                 self.marketplace.remove_from_cart(self.id, operation['product'])
 

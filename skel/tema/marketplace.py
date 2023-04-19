@@ -27,9 +27,9 @@ class Marketplace:
         self.num_consumers = 0  # the number of consumers/carts currently registered in the marketplace
         self.producers_id_lock = Lock()  # lock access to atomic integer num_producers
         self.consumers_id_lock = Lock()  # lock access to atomic integer num_consumers
-        self.carts = []  # a list of carts; a cart is a list of tuples (product, buffer_id)
-        self.producers_buffers = []  # a list of buffers, one for each producer (a buffer is a list of products)
-        self.producers_semaphores = []  # a list of semaphores to control access to producers buffers
+        self.carts = {}  # a list of carts; a cart is a list of tuples (product, buffer_id)
+        self.producers_buffers = {}  # a list of buffers, one for each producer (a buffer is a list of products)
+        self.producers_semaphores = {}  # a list of semaphores to control access to producers buffers
 
     def register_producer(self):
         """
