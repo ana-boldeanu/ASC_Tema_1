@@ -1,7 +1,0 @@
-0000000000000000000000000000000000000000 8f4234530199d4938667e06ab97b0ccc90dc2a3d Ana Boldeanu <ana_maria.boldeanu@stud.acs.upb.ro> 1681901671 +0300	commit (initial): Initial commit
-8f4234530199d4938667e06ab97b0ccc90dc2a3d c10422ac8d5fbb4e378547d63c830ba8277439ca Ana Boldeanu <ana_maria.boldeanu@stud.acs.upb.ro> 1681901773 +0300	commit: Add skel
-c10422ac8d5fbb4e378547d63c830ba8277439ca d7f4ede82b80853a0ae9b96bf2175cb17e5942f8 Ana Boldeanu <ana_maria.boldeanu@stud.acs.upb.ro> 1681921955 +0300	commit: add main functions
-d7f4ede82b80853a0ae9b96bf2175cb17e5942f8 efe177293708acc48548e43f8f52868d90a07f2c Ana Boldeanu <ana_maria.boldeanu@stud.acs.upb.ro> 1681923823 +0300	commit: fix errors, change lists to dictionary
-efe177293708acc48548e43f8f52868d90a07f2c 8b4cfd1f64d15f3ac06d0d6ffd76a868d3cf5e89 Ana Boldeanu <ana_maria.boldeanu@stud.acs.upb.ro> 1682090729 +0300	commit: finish functional tests
-8b4cfd1f64d15f3ac06d0d6ffd76a868d3cf5e89 693cf9f30adf2d98e8d0539061c64223bfba57b2 Ana Boldeanu <ana_maria.boldeanu@stud.acs.upb.ro> 1682101177 +0300	commit: add unit tests
-693cf9f30adf2d98e8d0539061c64223bfba57b2 65e6d9d986fbe64642e7818877e0b30c9d19a5c7 Ana Boldeanu <ana_maria.boldeanu@stud.acs.upb.ro> 1682105890 +0300	commit: added logger and pylint check
