@@ -37,11 +37,11 @@ class Consumer(Thread):
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
         self.name = kwargs['name']
-        self.id = None
+        self.cart_id = None
 
     def run(self):
         # Get a card ID from the marketplace
-        self.id = self.marketplace.new_cart()
+        self.cart_id = self.marketplace.new_cart()
 
         # Execute add and remove operations
         for cart in self.carts:
@@ -52,7 +52,7 @@ class Consumer(Thread):
 
                 if action == 'add':
                     while quantity > 0:
-                        found_it = self.marketplace.add_to_cart(self.id, product)
+                        found_it = self.marketplace.add_to_cart(self.cart_id, product)
                         if found_it:
                             quantity -= 1
                         else:
@@ -60,11 +60,11 @@ class Consumer(Thread):
 
                 elif action == 'remove':
                     while quantity > 0:
-                        self.marketplace.remove_from_cart(self.id, product)
+                        self.marketplace.remove_from_cart(self.cart_id, product)
                         quantity -= 1
 
         # Place the order
-        ordered_products = self.marketplace.place_order(self.id)
+        ordered_products = self.marketplace.place_order(self.cart_id)
 
         print_lock = self.marketplace.get_print_lock()
 
@@ -72,4 +72,3 @@ class Consumer(Thread):
         with print_lock:
             for product in ordered_products:
                 print("{} bought {}".format(self.name, product))
-
