@@ -44,12 +44,32 @@ class Consumer(Thread):
         self.id = self.marketplace.new_cart()
 
         # Execute add and remove operations
-        for operation in self.carts:
-            if operation[0] == 'add':
-                found_it = self.marketplace.add_to_cart(self.id, operation['product'])
-                if ~found_it:
-                    time.sleep(self.retry_wait_time)
+        for cart in self.carts:
+            for operation in cart:
+                action = operation['type']
+                product = operation['product']
+                quantity = operation['quantity']
 
-            if operation[0] == 'remove':
-                self.marketplace.remove_from_cart(self.id, operation['product'])
+                if action == 'add':
+                    while quantity > 0:
+                        found_it = self.marketplace.add_to_cart(self.id, product)
+                        if found_it:
+                            quantity -= 1
+                        else:
+                            time.sleep(self.retry_wait_time)
+
+                elif action == 'remove':
+                    while quantity > 0:
+                        self.marketplace.remove_from_cart(self.id, product)
+                        quantity -= 1
+
+        # Place the order
+        ordered_products = self.marketplace.place_order(self.id)
+
+        print_lock = self.marketplace.get_print_lock()
+
+        # Print result
+        with print_lock:
+            for product in ordered_products:
+                print("{} bought {}".format(self.name, product))
 

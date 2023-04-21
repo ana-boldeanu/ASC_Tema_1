@@ -27,9 +27,14 @@ class Marketplace:
         self.num_consumers = 0  # the number of consumers/carts currently registered in the marketplace
         self.producers_id_lock = Lock()  # lock access to atomic integer num_producers
         self.consumers_id_lock = Lock()  # lock access to atomic integer num_consumers
-        self.carts = {}  # a list of carts; a cart is a list of tuples (product, buffer_id)
-        self.producers_buffers = {}  # a list of buffers, one for each producer (a buffer is a list of products)
-        self.producers_semaphores = {}  # a list of semaphores to control access to producers buffers
+        self.buffer_removal_lock = Lock()
+        self.cart_removal_lock = Lock()
+        self.print_lock = Lock()
+        self.carts = {}  # a dict<id, cart>, a cart is a list of tuples (buffer_id, product)
+        self.producers_buffers = {}  # a dict<id, list>, one buffer for each producer (a buffer is a list of products)
+
+    def get_print_lock(self):
+        return self.print_lock
 
     def register_producer(self):
         """
@@ -38,7 +43,6 @@ class Marketplace:
         with self.producers_id_lock:
             prod_id = self.num_producers
             self.producers_buffers[prod_id] = []
-            self.producers_semaphores[prod_id] = Semaphore(value=self.queue_size_per_producer)
             self.num_producers += 1
         return prod_id
 
@@ -54,10 +58,11 @@ class Marketplace:
 
         :returns True or False. If the caller receives False, it should wait and then try again.
         """
-        semaphore = self.producers_semaphores[producer_id]
-        semaphore.acquire(blocking=False)
-        self.producers_buffers[producer_id].append(product)
-        semaphore.release()
+        products = self.producers_buffers[producer_id]
+        if len(products) < self.queue_size_per_producer:
+            products.append(product)
+            return True
+        return False
 
     def new_cart(self):
         """
@@ -73,7 +78,7 @@ class Marketplace:
 
     def add_to_cart(self, cart_id, product):
         """
-        Adds a product to the given cart. The method returns
+        Adds a product to the given cart.
 
         :type cart_id: Int
         :param cart_id: id cart
@@ -81,17 +86,17 @@ class Marketplace:
         :type product: Product
         :param product: the product to add to cart
 
-        :returns True or False. If the caller receives False, it should wait and then try again
+        Returns True or False. If the caller receives False, it should wait and then try again
         """
         # Look for the product in the producers' buffers
-        for i in range(len(self.producers_buffers)):
-            buffer = self.producers_buffers[i]
-            if buffer.contains(product):
-                # Add it to the cart
-                self.carts[cart_id].append((product, i))
-                # Remove it from the producer's buffer
-                buffer.remove(product)
-                return True
+        with self.buffer_removal_lock:
+            for idx, buffer in self.producers_buffers.items():
+                if buffer.count(product) > 0:
+                    # Add it to the cart
+                    self.carts[cart_id].append((idx, product))
+                    # Remove it from the producer's buffer
+                    buffer.remove(product)
+                    return True
         return False
 
     def remove_from_cart(self, cart_id, product):
@@ -105,12 +110,14 @@ class Marketplace:
         :param product: the product to remove from cart
         """
         # Search for the product in the cart
-        for (prod, buff_idx) in self.carts[cart_id]:
-            if prod == product:
-                # Remove it from the cart
-                self.carts[cart_id].remove((prod, buff_idx))
-                # Add it back to the producer's buffer
-                self.producers_buffers[buff_idx].append(product)
+        with self.cart_removal_lock:
+            for (idx, prod) in self.carts[cart_id]:
+                if prod == product:
+                    # Remove it from the cart
+                    self.carts[cart_id].remove((idx, prod))
+                    # Add it back to the producer's buffer
+                    self.producers_buffers[idx].append(product)
+                    break
 
     def place_order(self, cart_id):
         """
@@ -120,11 +127,9 @@ class Marketplace:
         :param cart_id: id cart
         """
         result = []
-        # Add each product to return list and remove it from the producer's buffer, releasing its semaphore
-        for (prod, buff_idx) in self.carts[cart_id]:
+        # Add each product to return list
+        for (idx, prod) in self.carts[cart_id]:
             result.append(prod)
-            self.producers_buffers[buff_idx].remove(prod)
-            self.producers_semaphores[buff_idx].release()
 
         # Empty this cart
         self.carts[cart_id].clear()
