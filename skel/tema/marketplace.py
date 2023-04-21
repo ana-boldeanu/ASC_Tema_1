@@ -41,10 +41,9 @@ class Marketplace:
         self.producers_id_lock = Lock()  # lock access to atomic integer num_producers
         self.consumers_id_lock = Lock()  # lock access to atomic integer num_consumers
         self.buffer_removal_lock = Lock()  # used to control access to producers buffers
-        self.cart_removal_lock = Lock()  # used to control access to cart buffers
         self.print_lock = Lock()  # lock used for print() calls by consumers
         self.carts = {}  # a dict<id, cart>, a cart is a list of tuples (buffer_id, product)
-        self.producers_buffers = {}  # a dict<id, list>, a buffer is a list of products
+        self.producers_buffers = {}  # a dict<id, buffer>, a buffer is a list of products
 
         logging.info('Ret __init__')
 
@@ -129,7 +128,7 @@ class Marketplace:
                 if buffer.count(product) > 0:
                     # Add it to the cart
                     self.carts[cart_id].append((idx, product))
-                    # Remove it from the producer's buffer
+                    # Remove it from the producer's buffer (restrict other consumers from buying)
                     buffer.remove(product)
 
                     logging.info('Call add_to_cart = True')
@@ -150,14 +149,13 @@ class Marketplace:
         logging.info('Call remove_from_cart(cart_id = %d, product = %s)', cart_id, product)
 
         # Search for the product in the cart
-        with self.cart_removal_lock:
-            for (idx, prod) in self.carts[cart_id]:
-                if prod == product:
-                    # Remove it from the cart
-                    self.carts[cart_id].remove((idx, prod))
-                    # Add it back to the producer's buffer
-                    self.producers_buffers[idx].append(product)
-                    break
+        for (idx, prod) in self.carts[cart_id]:
+            if prod == product:
+                # Remove it from the cart
+                self.carts[cart_id].remove((idx, prod))
+                # Add it back to the producer's buffer
+                self.producers_buffers[idx].append(product)
+                break
 
         logging.info('Ret remove_from_cart')
 
