@@ -6,7 +6,9 @@ Assignment 1
 March 2021
 """
 
-from threading import Lock, Semaphore
+import unittest
+from threading import Lock
+from .product import Tea, Coffee
 
 
 class Marketplace:
@@ -135,3 +137,134 @@ class Marketplace:
         self.carts[cart_id].clear()
 
         return result
+
+
+class TestMarketplace(unittest.TestCase):
+    """
+    Unit testing for Marketplace functions
+    register_producer, publish, new_cart, add_to_cart, remove_from_cart, place_order
+    """
+
+    def setUp(self):
+        self.max_buffer_size = 8
+        self.marketplace = Marketplace(self.max_buffer_size)
+
+        self.tea_product = Tea("Some tea", 10, "A bit lame")
+        self.coffee_product = Coffee("Coffee", 10, "5.5", "MEDIUM")
+
+        self.prod_0 = self.marketplace.register_producer()
+        self.prod_1 = self.marketplace.register_producer()
+
+        self.cons_0 = self.marketplace.new_cart()
+        self.cons_1 = self.marketplace.new_cart()
+        self.cons_2 = self.marketplace.new_cart()
+
+    def test_register_producer(self):
+        self.assertEqual(self.prod_0, 0)
+        self.assertEqual(self.prod_1, 1)
+        self.assertEqual(self.marketplace.num_producers, 2)
+
+        self.assertListEqual(self.marketplace.producers_buffers[0], [])
+        self.assertTrue(len(self.marketplace.producers_buffers[0]) == 0)
+
+    def test_publish(self):
+        # Test adding products to producers lists
+        self.assertTrue(self.marketplace.publish(self.prod_0, self.tea_product))
+        self.assertTrue(self.marketplace.publish(self.prod_0, self.coffee_product))
+
+        self.assertIn(self.tea_product, self.marketplace.producers_buffers[0])
+        self.assertIn(self.coffee_product, self.marketplace.producers_buffers[0])
+        self.assertNotIn(self.coffee_product, self.marketplace.producers_buffers[1])
+
+        self.assertTrue(self.marketplace.publish(self.prod_1, self.coffee_product))
+        self.assertIn(self.coffee_product, self.marketplace.producers_buffers[1])
+
+        self.assertEqual(len(self.marketplace.producers_buffers[0]), 2)
+        self.assertEqual(len(self.marketplace.producers_buffers[1]), 1)
+
+        # Test buffer size doesn't exceed limit
+        for i in range(2, self.max_buffer_size):
+            self.assertTrue(self.marketplace.publish(self.prod_0, self.tea_product))
+        self.assertFalse(self.marketplace.publish(self.prod_0, self.tea_product))
+
+    def test_new_cart(self):
+        self.assertEqual(self.cons_0, 0)
+        self.assertEqual(self.cons_2, 2)
+        self.assertEqual(self.marketplace.num_consumers, 3)
+
+        self.assertListEqual(self.marketplace.carts[0], [])
+        self.assertTrue(len(self.marketplace.carts[0]) == 0)
+
+    def test_add_to_cart(self):
+        self.marketplace.publish(self.prod_0, self.coffee_product)
+        for i in range(1, self.max_buffer_size):
+            self.assertTrue(self.marketplace.publish(self.prod_0, self.tea_product))
+        self.marketplace.publish(self.prod_1, self.tea_product)
+        self.marketplace.publish(self.prod_1, self.coffee_product)
+
+        # Producer 0 has 7xTea and 1xCoffee, Producer 1 has 1xTea and 1xCoffee
+        self.assertTrue(self.marketplace.add_to_cart(self.cons_0, self.coffee_product))
+        self.assertTrue(self.marketplace.add_to_cart(self.cons_0, self.coffee_product))
+        self.assertEqual(len(self.marketplace.carts[0]), 2)
+        self.assertEqual(len(self.marketplace.carts[1]), 0)
+
+        # No more coffee available
+        self.assertFalse(self.marketplace.add_to_cart(self.cons_0, self.coffee_product))
+        self.assertFalse(self.marketplace.add_to_cart(self.cons_1, self.coffee_product))
+        self.assertNotIn(self.coffee_product, self.marketplace.producers_buffers[0])
+        self.assertNotIn(self.coffee_product, self.marketplace.producers_buffers[1])
+
+    def test_remove_from_cart(self):
+        self.marketplace.publish(self.prod_0, self.coffee_product)
+        for i in range(1, self.max_buffer_size):
+            self.assertTrue(self.marketplace.publish(self.prod_0, self.tea_product))
+        self.marketplace.publish(self.prod_1, self.tea_product)
+        self.marketplace.publish(self.prod_1, self.coffee_product)
+
+        # Producer 0 has 7xTea and 1xCoffee, Producer 1 has 1xTea and 1xCoffee
+        self.assertTrue(self.marketplace.add_to_cart(self.cons_0, self.coffee_product))
+        self.assertTrue(self.marketplace.add_to_cart(self.cons_0, self.coffee_product))
+        self.assertTrue(self.marketplace.add_to_cart(self.cons_0, self.tea_product))
+
+        self.assertTrue(self.marketplace.add_to_cart(self.cons_1, self.tea_product))
+        self.assertTrue(self.marketplace.add_to_cart(self.cons_1, self.tea_product))
+
+        # Consumer 0 has 2xCoffee and 1xTea, Consumer 1 has 2xTea
+        self.marketplace.remove_from_cart(self.cons_0, self.coffee_product)
+        self.marketplace.remove_from_cart(self.cons_0, self.coffee_product)
+        self.assertEqual(len(self.marketplace.carts[0]), 1)
+
+        # Producers received their Coffee back
+        self.assertIn(self.coffee_product, self.marketplace.producers_buffers[0])
+        self.assertIn(self.coffee_product, self.marketplace.producers_buffers[1])
+
+        self.marketplace.remove_from_cart(self.cons_1, self.tea_product)
+        self.marketplace.add_to_cart(self.cons_1, self.coffee_product)
+        self.marketplace.add_to_cart(self.cons_1, self.coffee_product)
+        self.assertEqual(len(self.marketplace.carts[1]), 3)
+
+    def test_place_order(self):
+        self.marketplace.publish(self.prod_0, self.coffee_product)
+        self.marketplace.publish(self.prod_1, self.coffee_product)
+        self.marketplace.publish(self.prod_1, self.tea_product)
+        self.marketplace.publish(self.prod_1, self.tea_product)
+
+        self.marketplace.add_to_cart(self.cons_0, self.tea_product)
+
+        self.marketplace.add_to_cart(self.cons_1, self.tea_product)
+        self.marketplace.add_to_cart(self.cons_1, self.coffee_product)
+        self.marketplace.add_to_cart(self.cons_1, self.coffee_product)
+
+        # Consumer 0 has 1xTea, Consumer 1 has 1xTea and 2xCoffee
+        order_0 = self.marketplace.place_order(self.cons_0)
+        self.assertListEqual(order_0, [self.tea_product])
+
+        order_1 = self.marketplace.place_order(self.cons_1)
+        self.assertIn(self.tea_product, order_1)
+        self.assertIn(self.coffee_product, order_1)
+        self.assertEqual(len(order_1), 3)
+        self.assertListEqual(self.marketplace.carts[1], [])
+
+        # No one gets their coffee back
+        self.assertNotIn(self.coffee_product, self.marketplace.producers_buffers[0])
+        self.assertNotIn(self.coffee_product, self.marketplace.producers_buffers[1])
